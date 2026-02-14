@@ -1,5 +1,4 @@
-const socket = io("https://webtalk-2.onrender.com");
-
+const socket = io("https://webtalk-2.onrender.com"); // your backend URL
 
 let localStream;
 let peerConnections = {};
@@ -9,30 +8,27 @@ let users = {};
 
 const config = {
   iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    }
+    { urls: "stun:stun.l.google.com:19302" }
   ]
 };
 
-// 🎤 INIT MIC
+//////////////////// INIT MIC ////////////////////
+
 async function init() {
   localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  // start muted (push-to-talk)
   localStream.getAudioTracks()[0].enabled = false;
 
   startSpeakingDetection();
 }
+
 init();
 
-// ================= UI =================
+//////////////////// UI ////////////////////
 
-// CREATE ROOM
 document.getElementById("createBtn").onclick = () => {
   username = document.getElementById("nameInput").value;
-
   if (!username) return alert("Enter name");
 
   roomId = Math.random().toString(36).substring(2, 7);
@@ -40,30 +36,29 @@ document.getElementById("createBtn").onclick = () => {
   enterRoom();
 };
 
-// JOIN ROOM
 document.getElementById("joinBtn").onclick = () => {
   username = document.getElementById("nameInput").value;
   roomId = document.getElementById("roomInput").value;
 
-  if (!username || !roomId) return alert("Enter all details");
+  if (!username || !roomId) return alert("Enter all fields");
 
   enterRoom();
 };
 
-// ENTER ROOM
 function enterRoom() {
   document.getElementById("home").style.display = "none";
-  document.getElementById("roomScreen").style.display = "flex";
+  document.getElementById("room").style.display = "block";
 
-  document.getElementById("roomCode").innerText = "Room: " + roomId;
+  document.getElementById("roomCode").innerText = roomId;
 
-  socket.emit("join-room", roomId);
+  socket.emit("join-room", roomId, username);
 
   users[socket.id] = username;
   addUser(socket.id, username);
 }
 
-// COPY LINK
+//////////////////// COPY LINK ////////////////////
+
 document.getElementById("copyBtn").onclick = () => {
   const link = `${window.location.origin}?room=${roomId}`;
   navigator.clipboard.writeText(link);
@@ -73,13 +68,14 @@ document.getElementById("copyBtn").onclick = () => {
   setTimeout(() => (btn.innerText = "Copy Link"), 1000);
 };
 
-// AUTO JOIN VIA LINK
+//////////////////// AUTO JOIN ////////////////////
+
 const params = new URLSearchParams(window.location.search);
 if (params.get("room")) {
   document.getElementById("roomInput").value = params.get("room");
 }
 
-// ================= USERS UI =================
+//////////////////// USERS UI ////////////////////
 
 function addUser(id, name) {
   const div = document.createElement("div");
@@ -90,148 +86,135 @@ function addUser(id, name) {
   document.getElementById("users").appendChild(div);
 }
 
-// ================= WEBRTC =================
+function highlightUser(id, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
 
-// EXISTING USERS
-socket.on("existing-users", async (ids) => {
-  for (let id of ids) {
-    createConnection(id, true);
-  }
-});
-
-// NEW USER
-socket.on("user-joined", (id) => {
-  users[id] = "User";
-  addUser(id, "User");
-  createConnection(id, true);
-});
-
-// OFFER
-socket.on("offer", async ({ sdp, sender }) => {
-  createConnection(sender, false);
-
-  await peerConnections[sender].setRemoteDescription(
-    new RTCSessionDescription(sdp)
-  );
-
-  const answer = await peerConnections[sender].createAnswer();
-  await peerConnections[sender].setLocalDescription(answer);
-
-  socket.emit("answer", {
-    target: sender,
-    sdp: answer
-  });
-});
-
-// ANSWER
-socket.on("answer", async ({ sdp, sender }) => {
-  await peerConnections[sender].setRemoteDescription(
-    new RTCSessionDescription(sdp)
-  );
-});
-
-// ICE
-socket.on("ice-candidate", async ({ candidate, sender }) => {
-  try {
-    await peerConnections[sender].addIceCandidate(
-      new RTCIceCandidate(candidate)
-    );
-  } catch (e) {}
-});
-
-// CREATE CONNECTION
-function createConnection(id, isInitiator) {
-  const pc = new RTCPeerConnection(config);
-
-  peerConnections[id] = pc;
-
-  localStream.getTracks().forEach(track => {
-    pc.addTrack(track, localStream);
-  });
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      socket.emit("ice-candidate", {
-        target: id,
-        candidate: e.candidate
-      });
-    }
-  };
-
-  pc.ontrack = (e) => {
-    const audio = document.createElement("audio");
-    audio.srcObject = e.streams[0];
-    audio.autoplay = true;
-  };
-
-  if (isInitiator) {
-    pc.createOffer().then(offer => {
-      pc.setLocalDescription(offer);
-
-      socket.emit("offer", {
-        target: id,
-        sdp: offer
-      });
-    });
-  }
+  el.style.background = active ? "rgba(0,255,150,0.3)" : "transparent";
 }
 
-// ================= PUSH TO TALK =================
+//////////////////// PUSH TO TALK ////////////////////
 
-const talkBtn = document.getElementById("talk");
+const talkBtn = document.getElementById("talkBtn");
 
 talkBtn.onmousedown = () => {
-  talkBtn.innerText = "Talking...";
   localStream.getAudioTracks()[0].enabled = true;
-
-  highlightUser(socket.id);
 };
 
 talkBtn.onmouseup = () => {
-  talkBtn.innerText = "Hold to Talk";
   localStream.getAudioTracks()[0].enabled = false;
 };
 
-// ================= SPEAKING DETECTION =================
+talkBtn.ontouchstart = () => {
+  localStream.getAudioTracks()[0].enabled = true;
+};
+
+talkBtn.ontouchend = () => {
+  localStream.getAudioTracks()[0].enabled = false;
+};
+
+//////////////////// SPEAK DETECTION ////////////////////
 
 function startSpeakingDetection() {
   const audioContext = new AudioContext();
   const analyser = audioContext.createAnalyser();
+  const mic = audioContext.createMediaStreamSource(localStream);
 
-  const source = audioContext.createMediaStreamSource(localStream);
-  source.connect(analyser);
+  mic.connect(analyser);
 
-  analyser.fftSize = 512;
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  const data = new Uint8Array(analyser.frequencyBinCount);
 
-  setInterval(() => {
-    analyser.getByteFrequencyData(dataArray);
+  function check() {
+    analyser.getByteFrequencyData(data);
 
-    let volume =
-      dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    const volume = data.reduce((a, b) => a + b) / data.length;
 
-    if (volume > 20 && roomId) {
-      socket.emit("speaking", {
-        roomId,
-        userId: socket.id
-      });
-    }
-  }, 200);
+    socket.emit("speaking", volume > 20);
+
+    requestAnimationFrame(check);
+  }
+
+  check();
 }
 
-// RECEIVE SPEAKING
-socket.on("speaking", (id) => {
-  highlightUser(id);
+//////////////////// SOCKET EVENTS ////////////////////
+
+socket.on("existing-users", async (ids) => {
+  for (let id of ids) {
+    createPeerConnection(id, true);
+  }
 });
 
-// HIGHLIGHT USER
-function highlightUser(id) {
+socket.on("user-joined", (id, name) => {
+  users[id] = name;
+  addUser(id, name);
+  createPeerConnection(id, false);
+});
+
+socket.on("offer", async (id, offer) => {
+  const pc = createPeerConnection(id, false);
+
+  await pc.setRemoteDescription(offer);
+
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+
+  socket.emit("answer", id, answer);
+});
+
+socket.on("answer", async (id, answer) => {
+  await peerConnections[id].setRemoteDescription(answer);
+});
+
+socket.on("ice-candidate", (id, candidate) => {
+  peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate));
+});
+
+socket.on("user-left", (id) => {
+  if (peerConnections[id]) peerConnections[id].close();
+  delete peerConnections[id];
+
   const el = document.getElementById(id);
-  if (!el) return;
+  if (el) el.remove();
+});
 
-  el.classList.add("active");
+socket.on("speaking", (id, status) => {
+  highlightUser(id, status);
+});
 
-  setTimeout(() => {
-    el.classList.remove("active");
-  }, 300);
+//////////////////// WEBRTC ////////////////////
+
+function createPeerConnection(id, initiator) {
+  const pc = new RTCPeerConnection(config);
+
+  peerConnections[id] = pc;
+
+  // send audio
+  localStream.getTracks().forEach(track => {
+    pc.addTrack(track, localStream);
+  });
+
+  // receive audio
+  pc.ontrack = (event) => {
+    const audio = document.createElement("audio");
+    audio.srcObject = event.streams[0];
+    audio.autoplay = true;
+    document.body.appendChild(audio);
+  };
+
+  pc.onicecandidate = (event) => {  
+    if (event.candidate) {
+      socket.emit("ice-candidate", id, event.candidate);
+    }
+  };
+
+  if (initiator) {
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => {
+        socket.emit("offer", id, pc.localDescription);
+      });
+  }
+
+  return pc;
 }
