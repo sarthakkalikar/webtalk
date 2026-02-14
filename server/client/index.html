@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+
+<head>
+<meta charset="UTF-8">
+<title>WebTalk</title>
+
+<style>
+:root {
+  --gradient: linear-gradient(135deg, #22D3EE, #7C3AED, #D946EF);
+}
+
+/* ===== BASE ===== */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Segoe UI', sans-serif;
+  color: white;
+  overflow: hidden;
+}
+
+/* BACKGROUND */
+#bg {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+/* CENTER SCREEN */
+.screen {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* CARD */
+.card {
+  width: 320px;
+  padding: 30px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  text-align: center;
+}
+
+/* TITLE */
+.title {
+ .title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+
+  background: linear-gradient(135deg, #22D3EE, #7C3AED, #D946EF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  text-transform: lowercase;
+}
+
+}
+
+/* INPUT */
+input {
+  width: 90%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+/* BUTTON */
+button {
+  width: 95%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-size: 15px;
+  background: rgba(255,255,255,0.1);
+  transition: 0.3s;
+}
+
+button:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* PRIMARY BUTTON */
+.primary {
+  background: var(--gradient);
+}
+
+/* ROOM PANEL */
+.panel {
+  width: 360px;
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.users {
+  margin: 20px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.user {
+  padding: 10px;
+  border-radius: 10px;
+  margin: 6px 0;
+  background: rgba(255,255,255,0.05);
+  transition: 0.3s;
+}
+
+/* ACTIVE SPEAKER */
+.user.active {
+  background: rgba(34,211,238,0.2);
+  box-shadow: 0 0 10px #22D3EE;
+}
+
+/* TALK BUTTON */
+.talkBtn.active {
+  background: var(--gradient);
+}
+
+.tagline {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 10px;
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 1px;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- BACKGROUND -->
+<div id="bg"></div>
+
+<!-- HOME -->
+<div id="home" class="screen">
+  <div class="card">
+
+    <div class="title">web_talk</div>
+    <div class="tagline">#madebysofties</div>
+
+
+    <input id="nameInput" placeholder="Enter your name">
+
+    <button id="createBtn" class="primary">Create Room</button>
+    <button id="joinBtn">Join Room</button>
+
+    <input id="roomInput" placeholder="Enter room code">
+
+  </div>
+</div>
+
+<!-- ROOM -->
+<div id="roomScreen" class="screen" style="display:none;">
+  <div class="panel">
+
+    <div class="top">
+      <div id="roomCode"></div>
+      <button id="copyBtn">Copy</button>
+    </div>
+
+    <div id="users" class="users"></div>
+
+    <button id="talk" class="talkBtn">Hold to Talk</button>
+
+  </div>
+</div>
+
+<!-- SOCKET -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<!-- YOUR EXACT VANTA SCRIPT -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.halo.min.js"></script>
+
+<script>
+VANTA.HALO({
+  el: "#bg",
+  mouseControls: true,
+  touchControls: true,
+  gyroControls: false,
+  minHeight: 200.00,
+  minWidth: 200.00
+});
+</script>
+
+<!-- APP LOGIC -->
+<script src="app.js"></script>
+
+</body>
+</html>
