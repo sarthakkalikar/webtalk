@@ -1,4 +1,5 @@
-const socket=io("https://webtalk-2.onrender.com/");
+const socket = io("https://webtalk-2.onrender.com");
+
 
 let localStream;
 let peerConnections = {};
